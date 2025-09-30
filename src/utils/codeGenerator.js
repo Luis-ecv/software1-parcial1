@@ -176,10 +176,20 @@
   
   // Funciones auxiliares
   const generateFields = (attributes) => {
-    return attributes.map(attr => {
-      const [name, type] = attr.split(':').map(s => s.trim());
-      return `@Column\nprivate ${mapJavaType(type)} ${name.replace(/[+-]/, '')};`;
-    }).join('\n\n    ');
+    if (!attributes || !Array.isArray(attributes)) {
+      return '// No attributes defined';
+    }
+    
+    return attributes
+      .filter(attr => attr && typeof attr === 'string' && attr.includes(':'))
+      .map(attr => {
+        const [name, type] = attr.split(':').map(s => s.trim());
+        if (!name || !type) return '';
+        const cleanName = name.replace(/[+-]/, '');
+        return `@Column\nprivate ${mapJavaType(type)} ${cleanName};`;
+      })
+      .filter(field => field.length > 0)
+      .join('\n\n    ');
   };
   
   const generateRelations = (relations) => {
@@ -187,15 +197,19 @@
       .filter(relation => relation && relation.type) // Filtra relaciones inválidas
       .map(relation => {
         switch (relation.type) {
-          case 'OneToMany':
+          case 'OneToMany': {
+            const mappedBy = relation.mappedBy || 'parent';
             return `
-        @OneToMany(mappedBy = "${relation.mappedBy.toLowerCase()}") 
+        @OneToMany(mappedBy = "${mappedBy.toLowerCase()}") 
         private List<${relation.targetClass}> ${relation.field};`;
-          case 'ManyToOne':
+          }
+          case 'ManyToOne': {
+            const fieldName = relation.field || 'parent';
             return `
         @ManyToOne
-        @JoinColumn(name = "${relation.field}_id")
-        private ${relation.targetClass} ${relation.field};`;
+        @JoinColumn(name = "${fieldName}_id")
+        private ${relation.targetClass} ${fieldName};`;
+          }
           default:
             return '';
         }
@@ -204,6 +218,10 @@
   };
   
   const mapJavaType = (type) => {
+    if (!type || typeof type !== 'string') {
+      return 'Object'; // Tipo por defecto si type es undefined o inválido
+    }
+    
     const typeMap = {
       'string': 'String',
       'int': 'Integer',
@@ -278,7 +296,7 @@ function getRelations(nodeId, allNodes, allEdges) {
           : (e.data?.sourceRole || `relatedTo${otherClassName}`),
         mappedBy: isSource ? e.data?.targetRole : e.data?.sourceRole,
         targetClass: otherClassName,
-        joinTableName: `${nodeId.toLowerCase()}_${otherNodeId.toLowerCase()}`,
+        joinTableName: `${String(nodeId).toLowerCase()}_${String(otherNodeId).toLowerCase()}`,
         sourceField: e.source,
         targetField: e.target
       };
