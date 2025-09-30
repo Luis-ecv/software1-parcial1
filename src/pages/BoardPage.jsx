@@ -20,6 +20,7 @@ import LeftSidebar from "../components/control/Sidebar";
 import Swal from 'sweetalert2';
 import { buildExportXML } from '../utils/myCustomXmlFunctions';
 import { generateCode } from '../utils/codeGenerator';
+import { generateCompleteProject } from '../utils/completeProjectGenerator';
 import { verifyUMLDiagramWithAI, validateAICredentials } from '../utils/aiUMLValidator';
 import BurbujaHerramientasDiagrama from '../components/BurbujaHerramientasDiagrama';
 import JSZip from 'jszip'
@@ -384,6 +385,61 @@ const BoardPage = () => {
       });
     }
   };
+
+  // Función para generar proyecto completo Spring Boot
+  const handleGenerateCompleteProject = async () => {
+    try {
+      if (!nodes.length) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Diagrama vacío',
+          text: 'No hay clases en el diagrama para generar el proyecto.'
+        });
+        return;
+      }
+
+      Swal.fire({
+        title: 'Generando proyecto completo...',
+        text: 'Creando proyecto Spring Boot con Maven',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        willOpen: () => Swal.showLoading()
+      });
+
+      const projectName = `UMLProject_${boardId}`;
+      const result = await generateCompleteProject(nodes, edges, projectName);
+
+      Swal.close();
+
+      if (result.success) {
+        Swal.fire({
+          icon: 'success',
+          title: '✅ ¡Proyecto generado exitosamente!',
+          html: `
+            <div class="text-left">
+              <p><strong>📦 Archivo:</strong> ${result.fileName}</p>
+              <p><strong>📊 Entidades:</strong> ${result.entities}</p>
+              <p><strong>📁 Archivos totales:</strong> ${result.files}</p>
+              <p><strong>☕ Java:</strong> ${result.details.javaVersion}</p>
+              <p><strong>🚀 Spring Boot:</strong> ${result.details.springBootVersion}</p>
+              <p><strong>🗄️ Base de datos:</strong> ${result.details.database}</p>
+            </div>
+          `,
+          confirmButtonText: 'Excelente'
+        });
+      }
+
+    } catch (error) {
+      Swal.close();
+      Swal.fire({
+        icon: 'error',
+        title: 'Error generando proyecto',
+        text: error.message
+      });
+    }
+  };
+
   // onConnect para crear aristas por defecto - Versión mejorada
   const onConnect = useCallback(
     (params) => {
@@ -508,27 +564,6 @@ const BoardPage = () => {
             Verificar Diagrama
           </button>
 
-          {/* Botón de exportación */}
-          <button
-            onClick={handleExportXMI}
-            className="btn-secondary bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:from-purple-700 hover:to-indigo-700"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-              />
-            </svg>
-            Exportar para EA
-          </button>
-
           {/* Botón de generación Full Stack */}
           <button
             onClick={() => handleGenerateCode(true)}
@@ -548,6 +583,27 @@ const BoardPage = () => {
               />
             </svg>
             Full Stack
+          </button>
+
+          {/* Botón de generación Full Stack Completo */}
+          <button
+            onClick={() => handleGenerateCompleteProject()}
+            className="btn-secondary bg-gradient-to-r from-green-600 to-teal-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:from-green-700 hover:to-teal-700"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M19 11H5m14 0a4 4 0 01-4 4H9a4 4 0 01-4-4m14 0a4 4 0 00-4-4h6a4 4 0 014 4z"
+              />
+            </svg>
+            Full Stack C
           </button>
 
           {/* Usuarios activos */}

@@ -12,6 +12,15 @@ export const generateCompleteProject = async (nodes, edges, projectName = 'UMLGe
     // Generar código base con validaciones ya incluidas
     const baseResult = generateCode(nodes, edges, true);
     
+    // Debug: Verificar que tenemos todas las capas
+    console.log('🔍 GenerateCompleteProject - baseResult:', {
+      models: baseResult.models?.length || 0,
+      repositories: baseResult.repositories?.length || 0,  
+      services: baseResult.services?.length || 0,
+      controllers: baseResult.controllers?.length || 0,
+      type: baseResult.type
+    });
+    
     // Importar JSZip dinámicamente
     const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
@@ -231,22 +240,46 @@ Thumbs.db
     zip.file('.gitignore', gitignore);
 
     // Añadir código generado (con imports corregidos a Jakarta)
-    baseResult.models.forEach(model => {
-      const javaCode = model.code.replace(/javax\.persistence/g, 'jakarta.persistence');
-      zip.file(`src/main/java/com/generated/entities/${model.className}.java`, javaCode);
-    });
+    console.log('🔍 Añadiendo modelos al ZIP...');
+    if (baseResult.models && baseResult.models.length > 0) {
+      baseResult.models.forEach(model => {
+        console.log(`  📄 Añadiendo: ${model.className}.java`);
+        const javaCode = model.code.replace(/javax\.persistence/g, 'jakarta.persistence');
+        zip.file(`src/main/java/com/generated/entities/${model.className}.java`, javaCode);
+      });
+    } else {
+      console.warn('⚠️ No hay modelos para añadir');
+    }
 
-    baseResult.repositories.forEach(repo => {
-      zip.file(`src/main/java/com/generated/repositories/${repo.className}Repository.java`, repo.code);
-    });
+    console.log('🔍 Añadiendo repositorios al ZIP...');
+    if (baseResult.repositories && baseResult.repositories.length > 0) {
+      baseResult.repositories.forEach(repo => {
+        console.log(`  📄 Añadiendo: ${repo.className}Repository.java`);
+        zip.file(`src/main/java/com/generated/repositories/${repo.className}Repository.java`, repo.code);
+      });
+    } else {
+      console.warn('⚠️ No hay repositorios para añadir');
+    }
 
-    baseResult.services.forEach(service => {
-      zip.file(`src/main/java/com/generated/services/${service.className}Service.java`, service.code);
-    });
+    console.log('🔍 Añadiendo servicios al ZIP...');
+    if (baseResult.services && baseResult.services.length > 0) {
+      baseResult.services.forEach(service => {
+        console.log(`  📄 Añadiendo: ${service.className}Service.java`);
+        zip.file(`src/main/java/com/generated/services/${service.className}Service.java`, service.code);
+      });
+    } else {
+      console.warn('⚠️ No hay servicios para añadir');
+    }
 
-    baseResult.controllers.forEach(controller => {
-      zip.file(`src/main/java/com/generated/controllers/${controller.className}Controller.java`, controller.code);
-    });
+    console.log('🔍 Añadiendo controladores al ZIP...');
+    if (baseResult.controllers && baseResult.controllers.length > 0) {
+      baseResult.controllers.forEach(controller => {
+        console.log(`  📄 Añadiendo: ${controller.className}Controller.java`);
+        zip.file(`src/main/java/com/generated/controllers/${controller.className}Controller.java`, controller.code);
+      });
+    } else {
+      console.warn('⚠️ No hay controladores para añadir');
+    }
 
     // Crear directorios vacíos necesarios
     zip.folder('src/test/java/com/generated');
@@ -278,7 +311,8 @@ Thumbs.db
     };
 
   } catch (error) {
-    console.error('Error generando proyecto completo:', error);
-    throw new Error(`Error generando proyecto: ${error.message}`);
+    console.error('❌ Error generando proyecto completo:', error);
+    console.error('❌ Stack trace:', error.stack);
+    throw new Error(`Error en generateCompleteProject: ${error.message}`);
   }
 };
