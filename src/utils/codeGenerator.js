@@ -3,6 +3,12 @@
 
   export const generateCode = (nodes, edges, generateFullStack = false) => {
     try {
+      // Validar que todos los nodos tienen className
+      const invalidNodes = nodes.filter(node => !node.data?.className);
+      if (invalidNodes.length > 0) {
+        throw new Error(`Los siguientes nodos no tienen nombre de clase definido: ${invalidNodes.map(n => n.id).join(', ')}`);
+      }
+
       // 1) Generamos los modelos y guardamos { className, code }
       const models = nodes.map((node) => {
         const code = generateEntityClass(node, edges);
