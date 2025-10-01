@@ -91,19 +91,36 @@ export const useFirebaseFlow = (boardId, db, currentUser) => {
   }, [edges, updateBoardData]);
 
   // Función para añadir nodos
-const addNode = useCallback(async () => {
-  const sanitizedClassName = `Clase${nodes.length + 1}`;
-
-  const newNode = {
-    id: `node-${Date.now()}`,
-    position: { x: Math.random() * 300 + 100, y: Math.random() * 300 + 100 },
-    type: "classNode",
-    data: {
-      className: sanitizedClassName,
-      attributes: ["nuevoAtributo: string"],
-      methods: ["nuevoMetodo(): void"],
-    },
-  };
+const addNode = useCallback(async (nodeType = "classNode", customData = {}) => {
+  let newNode;
+  
+  if (nodeType === "noteNode") {
+    // Crear nodo de nota
+    newNode = {
+      id: `note-${Date.now()}`,
+      position: { x: Math.random() * 300 + 100, y: Math.random() * 300 + 100 },
+      type: "noteNode",
+      data: {
+        text: customData.text || 'Nueva nota...\nHaz clic para editar',
+        isNote: true,
+        ...customData
+      },
+    };
+  } else {
+    // Crear nodo de clase (comportamiento original)
+    const sanitizedClassName = `Clase${nodes.filter(n => n.type === 'classNode').length + 1}`;
+    newNode = {
+      id: `node-${Date.now()}`,
+      position: { x: Math.random() * 300 + 100, y: Math.random() * 300 + 100 },
+      type: "classNode",
+      data: {
+        className: sanitizedClassName,
+        attributes: ["nuevoAtributo: string"],
+        methods: ["nuevoMetodo(): void"],
+        ...customData
+      },
+    };
+  }
 
   const updatedNodes = [...nodes, newNode];
   setNodes(updatedNodes);
@@ -281,6 +298,7 @@ const addNode = useCallback(async () => {
     },
     setEditingData,
     setEditingEdge,
+    setSelectedEdge,
     updateBoardData,
     setNodes,
     setEdges,

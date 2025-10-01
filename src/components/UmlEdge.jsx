@@ -1,5 +1,5 @@
-import React, { memo } from 'react';
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath } from '@xyflow/react';
+import React, { memo, useState } from 'react';
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, getBezierPath } from '@xyflow/react';
 
 const UML_RELATIONSHIP_TYPES = {
   Association: {
@@ -37,6 +37,12 @@ const UML_RELATIONSHIP_TYPES = {
     markerEnd: 'arrow',
     strokeStyle: 'dashed',
     stroke: '#666666'
+  },
+  NoteConnection: {
+    markerStart: 'none',
+    markerEnd: 'none',
+    strokeStyle: 'dashed',
+    stroke: '#fbbf24' // Color amarillo para conexiones de notas
   }
 };
 
@@ -51,23 +57,123 @@ const UmlEdge = ({
   data,
   style = {}
 }) => {
-  // Crea la ruta curva
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    borderRadius: 5
-  });
+  // Detectar si es una conexión recursiva (mismo nodo)
+  const isRecursive = sourceX === targetX && sourceY === targetY;
+  
+  // Usar puntos de control personalizados si están definidos en data
+  const customControlPoints = data?.controlPoints || [];
+  const hasCustomPath = customControlPoints.length > 0;
+  
+  let edgePath, labelX, labelY;
+  
+  if (hasCustomPath && !isRecursive) {
+    // Usar Bézier path con puntos de control personalizados
+    const controlX = customControlPoints[0]?.x || (sourceX + targetX) / 2;
+    const controlY = customControlPoints[0]?.y || (sourceY + targetY) / 2;
+    
+    [edgePath, labelX, labelY] = getBezierPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      curvature: 0.25
+    });
+  } else {
+    // Usar smooth step path normal
+    [edgePath, labelX, labelY] = getSmoothStepPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      borderRadius: isRecursive ? 25 : 5,
+      offset: isRecursive ? 50 : 20
+    });
+  }
 
   if (!edgePath) return null;
 
   const edgeType = UML_RELATIONSHIP_TYPES[data?.type || 'Association'];
   const isSelected = data?.selected || false;
+  const isAssociationConnection = data?.isAssociationConnection || false;
+  const isNoteConnection = data?.isNoteConnection || false;
   
-  // Estilos mejorados con feedback visual
+  // Estilos especiales para conexiones de clase de asociación
+  if (isAssociationConnection) {
+    const associationStyle = {
+      ...style,
+      stroke: '#dc2626', // Rojo más visible para debugging
+      strokeWidth: 3, // Más grueso para ser visible
+      strokeDasharray: '8,4', // Patrón más visible
+      pointerEvents: 'none',
+      opacity: 1, // Totalmente opaco
+      zIndex: 1000
+    };
+    
+    console.log('🔗 Renderizando línea de asociación:', { id, edgePath, style: associationStyle });
+    
+    return (
+      <>
+        {/* Edge visual principal para conexión de asociación */}
+        <BaseEdge
+          id={id}
+          path={edgePath}
+          style={associationStyle}
+          markerEnd="none"
+          markerStart="none"
+        />
+        
+        {/* Texto indicador para debugging */}
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              background: '#dc2626',
+              color: 'white',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              pointerEvents: 'none',
+              zIndex: 1001
+            }}
+          >
+            ASSOC
+          </div>
+        </EdgeLabelRenderer>
+      </>
+    );
+  }
+  
+  // Estilos especiales para conexiones de notas
+  if (isNoteConnection) {
+    const noteStyle = {
+      ...style,
+      stroke: '#fbbf24', // Amarillo para conexiones de notas
+      strokeWidth: 1.5,
+      strokeDasharray: '4,4', // Línea punteada ligera
+      pointerEvents: 'none',
+      opacity: 0.8
+    };
+    
+    return (
+      <>
+        <BaseEdge
+          id={id}
+          path={edgePath}
+          style={noteStyle}
+          markerEnd="none"
+          markerStart="none"
+        />
+      </>
+    );
+  }
+  
+  // Estilos mejorados con feedback visual para relaciones normales
   const edgeStyle = {
     ...style,
     stroke: isSelected ? '#dc2626' : edgeType.stroke, // Rojo cuando está seleccionado
@@ -155,6 +261,32 @@ const UmlEdge = ({
         markerStart={edgeType.markerStart ? `url(#${edgeType.markerStart})` : undefined}
       />
 
+      {/* Indicador de clase de asociación */}
+      {data?.hasAssociationClass && (
+        <>
+          <circle
+            cx={labelX}
+            cy={labelY}
+            r="4"
+            fill="#3b82f6"
+            stroke="white"
+            strokeWidth="2"
+            style={{ filter: 'drop-shadow(0 1px 2px rgb(0 0 0 / 0.3))' }}
+          />
+          <text
+            x={labelX}
+            y={labelY - 12}
+            textAnchor="middle"
+            fontSize="10"
+            fontWeight="bold"
+            fill="#3b82f6"
+            style={{ filter: 'drop-shadow(0 1px 1px rgb(255 255 255 / 0.8))' }}
+          >
+            AC
+          </text>
+        </>
+      )}
+
       <EdgeLabelRenderer>
         {/* Etiqueta general (data.label), si la quisieras en medio */}
         {data?.label && (
@@ -172,6 +304,26 @@ const UmlEdge = ({
             className="nodrag nopan"
           >
             {data.label}
+          </div>
+        )}
+
+        {/* Indicador visual para clase de asociación */}
+        {data?.hasAssociationClass && (
+          <div
+            style={{
+              position: 'absolute',
+              background: '#3b82f6',
+              color: 'white',
+              padding: '1px 4px',
+              borderRadius: '6px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY + 15}px)`
+            }}
+            className="nodrag nopan"
+            title="Esta relación tiene una clase de asociación"
+          >
+            AC
           </div>
         )}
 

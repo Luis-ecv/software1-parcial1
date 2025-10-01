@@ -8,16 +8,204 @@ function ClassNode({ data, isConnectable }) {
   // Por ejemplo, si guardas "private edad: int", no hace falta transformarlo.
   // Pero si guardas "edad,int,private" tendrías que formatearlo aquí.
 
+  // Si es un punto de conexión, renderizar un punto visible para debug
+  if (data?.isConnectionPoint) {
+    return (
+      <div style={{ 
+        width: 12, 
+        height: 12, 
+        background: '#3b82f6', // Azul más visible
+        borderRadius: '50%',
+        border: '2px solid #ffffff',
+        position: 'relative',
+        zIndex: 1001,
+        boxShadow: '0 0 6px rgba(59, 130, 246, 0.8)'
+      }}>
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="connection-point"
+          isConnectable={isConnectable}
+          style={{ 
+            opacity: 1, // Hacerlo visible
+            top: '50%', 
+            left: '50%', 
+            transform: 'translate(-50%, -50%)',
+            width: 12,
+            height: 12,
+            background: '#3b82f6',
+            border: '2px solid #fff'
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="class-node" style={{ minWidth: 160 }}>
-      {/* Salida (source) */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="right"
-        isConnectable={isConnectable}
-        className="handle"
-      />
+      {/* Handles para clases normales - Múltiples puntos de conexión */}
+      {!data?.isAssociationClass && (
+        <>
+          {/* HANDLES FUENTE (para iniciar conexiones) */}
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="right-top"
+            isConnectable={isConnectable}
+            className="handle"
+            style={{ 
+              top: '25%',
+              width: '18px',
+              height: '18px',
+              border: '3px solid #10b981',
+              background: '#ffffff',
+              borderRadius: '50%',
+              cursor: 'crosshair'
+            }}
+          />
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="right-center"
+            isConnectable={isConnectable}
+            className="handle"
+            style={{ 
+              top: '50%',
+              width: '18px',
+              height: '18px',
+              border: '3px solid #10b981',
+              background: '#ffffff',
+              borderRadius: '50%',
+              cursor: 'crosshair'
+            }}
+          />
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="right-bottom"
+            isConnectable={isConnectable}
+            className="handle"
+            style={{ 
+              top: '75%',
+              width: '18px',
+              height: '18px',
+              border: '3px solid #10b981',
+              background: '#ffffff',
+              borderRadius: '50%',
+              cursor: 'crosshair'
+            }}
+          />
+          
+          {/* HANDLES DESTINO (para recibir conexiones) */}
+          <Handle
+            type="target"
+            position={Position.Left}
+            id="left-top"
+            isConnectable={isConnectable}
+            className="handle"
+            style={{ 
+              top: '25%',
+              width: '18px',
+              height: '18px',
+              border: '3px solid #3b82f6',
+              background: '#ffffff',
+              borderRadius: '50%',
+              cursor: 'crosshair'
+            }}
+          />
+          <Handle
+            type="target"
+            position={Position.Left}
+            id="left-center"
+            isConnectable={isConnectable}
+            className="handle"
+            style={{ 
+              top: '50%',
+              width: '18px',
+              height: '18px',
+              border: '3px solid #3b82f6',
+              background: '#ffffff',
+              borderRadius: '50%',
+              cursor: 'crosshair'
+            }}
+          />
+          <Handle
+            type="target"
+            position={Position.Left}
+            id="left-bottom"
+            isConnectable={isConnectable}
+            className="handle"
+            style={{ 
+              top: '75%',
+              width: '18px',
+              height: '18px',
+              border: '3px solid #3b82f6',
+              background: '#ffffff',
+              borderRadius: '50%',
+              cursor: 'crosshair'
+            }}
+          />
+
+          {/* HANDLES SUPERIOR E INFERIOR */}
+          <Handle
+            type="source"
+            position={Position.Top}
+            id="top-center"
+            isConnectable={isConnectable}
+            className="handle"
+            style={{ 
+              left: '50%',
+              width: '18px',
+              height: '18px',
+              border: '3px solid #f59e0b',
+              background: '#ffffff',
+              borderRadius: '50%',
+              cursor: 'crosshair'
+            }}
+          />
+          <Handle
+            type="target"
+            position={Position.Bottom}
+            id="bottom-center"
+            isConnectable={isConnectable}
+            className="handle"
+            style={{ 
+              left: '50%',
+              width: '18px',
+              height: '18px',
+              border: '3px solid #ef4444',
+              background: '#ffffff',
+              borderRadius: '50%',
+              cursor: 'crosshair'
+            }}
+          />
+
+
+        </>
+      )}
+
+      {/* Handle especial para clases de asociación (parte inferior) */}
+      {data?.isAssociationClass && (
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id="bottom"
+          isConnectable={isConnectable}
+          className="handle"
+          style={{ 
+            bottom: -10,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '18px',
+            height: '18px',
+            border: '3px solid #dc2626', // Rojo para debugging
+            background: '#ffffff',
+            borderRadius: '50%',
+            cursor: 'crosshair',
+            zIndex: 1000
+          }}
+        />
+      )}
 
       {/* Nombre de la clase */}
       <div className="class-name">
@@ -47,15 +235,6 @@ function ClassNode({ data, isConnectable }) {
           </ul>
         </div>
       )}
-
-      {/* Entrada (target) */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="left"
-        isConnectable={isConnectable}
-        className="handle"
-      />
     </div>
   );
 }

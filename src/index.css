@@ -143,21 +143,52 @@
     filter: drop-shadow(0 2px 6px var(--color-accent));
   }
 
-  .react-flow__handle {
-    width: 12px;
-    height: 12px;
-    background: var(--color-primary);
-    border: 2px solid var(--color-primary-active);
-    border-radius: 50%;
-    transition: all 0.2s ease;
-  }
+/* Mejorar visibilidad de los handles */
+.react-flow__handle {
+  width: 18px !important;
+  height: 18px !important;
+  border: 2px solid #fff !important;
+  background: #555 !important;
+}
 
-  .react-flow__handle:hover {
-    transform: scale(1.2);
-    background: var(--color-primary-hover);
-  }
+.react-flow__handle:hover {
+  background: #3b82f6 !important;
+  cursor: crosshair !important;
+}
 
-  .react-flow__edge-text {
+/* Handles específicos por posición */
+.react-flow__handle.left-handle {
+  background: #3b82f6 !important; /* Azul para targets */
+}
+
+.react-flow__handle.right-handle {
+  background: #10b981 !important; /* Verde para sources */
+}
+
+.react-flow__handle.top-handle {
+  background: #f59e0b !important; /* Amarillo para top */
+}
+
+.react-flow__handle.bottom-handle {
+  background: #ef4444 !important; /* Rojo para bottom */
+}
+
+/* Estilos para nodos de notas */
+.note-node {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.note-node.selected {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(255, 193, 7, 0.5) !important;
+}
+
+.note-node:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}  .react-flow__edge-text {
     font-size: 14px;
     color: var(--color-primary);
     font-weight: 600;
@@ -393,6 +424,26 @@
     background: var(--color-background-tertiary);
     border-color: var(--color-primary);
     transform: translateY(-1px);
+  }
+
+  .btn-accent {
+    background: linear-gradient(135deg, var(--color-accent), #2b6cb0);
+    color: var(--color-neutral-light);
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-accent:hover {
+    background: linear-gradient(135deg, #2b6cb0, var(--color-accent));
+    transform: translateY(-1px);
+    box-shadow: var(--color-shadow-elevated);
   }
 
   .input-modern {

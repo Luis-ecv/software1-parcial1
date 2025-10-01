@@ -1,11 +1,13 @@
 // BoardPage.jsx
-import React, { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import {
   Background,
   Controls,
   ReactFlow,
   ReactFlowProvider,
-  addEdge
+  addEdge,
+  getSmoothStepPath,
+  Position
 } from "@xyflow/react";
 import { useParams } from "react-router-dom";
 import { db } from "../firebase-confing/Firebase";
@@ -50,6 +52,7 @@ const BoardPage = () => {
     updateEdgeData,
     setEditingData,
     setEditingEdge,
+    setSelectedEdge,
     updateBoardData,
     setNodes,
     setEdges
@@ -450,34 +453,23 @@ const BoardPage = () => {
         return;
       }
 
-      // Prevenir auto-conexiones
-      if (params.source === params.target) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Conexión inválida',
-          text: 'No puedes conectar una clase consigo misma',
-          timer: 2000
-        });
-        return;
-      }
+      // Detectar si es una conexión de nota
+      const sourceNode = nodes.find(n => n.id === params.source);
+      const targetNode = nodes.find(n => n.id === params.target);
+      const isNoteConnection = sourceNode?.data?.isNote || targetNode?.data?.isNote;
 
-      // Verificar si ya existe una conexión entre estos nodos
-      const existingEdge = edges.find(edge => 
-        (edge.source === params.source && edge.target === params.target) ||
-        (edge.source === params.target && edge.target === params.source)
-      );
+      console.log('✅ Permitiendo conexión múltiple/recursiva entre nodos:', {
+        source: params.source,
+        target: params.target,
+        isRecursive: params.source === params.target,
+        isNoteConnection,
+        existingConnections: edges.filter(e => 
+          (e.source === params.source && e.target === params.target) ||
+          (e.source === params.target && e.target === params.source)
+        ).length
+      });
 
-      if (existingEdge) {
-        Swal.fire({
-          icon: 'info',
-          title: 'Conexión existente',
-          text: 'Ya existe una relación entre estas clases',
-          timer: 2000
-        });
-        return;
-      }
-
-      // Crear edge con datos completos y ID único
+      // Crear edge con datos específicos según si es una nota o relación normal
       const newEdge = {
         id: `edge-${Date.now()}-${params.source}-${params.target}`,
         source: params.source,
@@ -486,7 +478,11 @@ const BoardPage = () => {
         targetHandle: params.targetHandle || 'left',
         type: 'umlEdge',
         animated: false,
-        data: {
+        data: isNoteConnection ? {
+          type: 'NoteConnection',
+          isNoteConnection: true,
+          selected: false
+        } : {
           type: 'Association',
           startLabel: '',
           endLabel: '',
@@ -508,7 +504,7 @@ const BoardPage = () => {
         handleEdgeSelection(newEdge);
       }, 100);
     },
-    [edges, setEdges, updateBoardData, handleEdgeSelection]
+    [edges, nodes, setEdges, updateBoardData, handleEdgeSelection]
   );
 
   // Manejadores de edición...
@@ -528,12 +524,291 @@ const BoardPage = () => {
     }));
   }, [setEditingEdge]);
 
+
+
   const handleArrayChange = (name, value) => {
     setEditingData((prev) => ({
       ...prev,
       [name]: value.split("\n"),
     }));
   };
+
+  // Efecto para actualizar posiciones de puntos de conexión cuando los nodos se mueven
+  useEffect(() => {
+    const updateConnectionPoints = async () => {
+      let hasUpdates = false;
+      const updatedNodes = [...nodes];
+
+      // Buscar todos los edges que tienen clases de asociación
+      const associationEdges = edges.filter(edge => edge.data?.hasAssociationClass);
+
+      for (const edge of associationEdges) {
+        const sourceNode = nodes.find(n => n.id === edge.source);
+        const targetNode = nodes.find(n => n.id === edge.target);
+        const connectionPoint = nodes.find(n => 
+          n.data?.isConnectionPoint && 
+          edges.some(e => e.target === n.id && e.data?.parentRelationId === edge.id)
+        );
+
+        if (sourceNode && targetNode && connectionPoint) {
+          // Calcular dimensiones basadas en CSS real
+          const calculateRealNodeDimensions = (node) => {
+            const nodeWidth = 340;
+            const padding = 20;
+            const lineHeight = 22.4;
+            const titleHeight = 32;
+            const sectionTitleHeight = 18;
+            const basePadding = 8;
+            
+            let totalHeight = padding * 2;
+            totalHeight += titleHeight;
+            
+            const attributeCount = node.data?.attributes?.length || 0;
+            const methodCount = node.data?.methods?.length || 0;
+            
+            if (attributeCount > 0) {
+              totalHeight += sectionTitleHeight + basePadding;
+              totalHeight += attributeCount * lineHeight;
+              totalHeight += basePadding;
+            }
+            
+            if (methodCount > 0) {
+              totalHeight += sectionTitleHeight + basePadding;
+              totalHeight += methodCount * lineHeight;
+              totalHeight += basePadding;
+            }
+            
+            totalHeight = Math.max(totalHeight, 100);
+            
+            return { width: nodeWidth, height: totalHeight };
+          };
+          
+          const sourceDimensions = calculateRealNodeDimensions(sourceNode);
+          const targetDimensions = calculateRealNodeDimensions(targetNode);
+          
+          const sourceX = sourceNode.position.x + sourceDimensions.width;
+          const sourceY = sourceNode.position.y + (sourceDimensions.height / 2);
+          const targetX = targetNode.position.x;
+          const targetY = targetNode.position.y + (targetDimensions.height / 2);
+          
+          // Usar getSmoothStepPath para obtener labelX y labelY exactos
+          const [, labelX, labelY] = getSmoothStepPath({
+            sourceX,
+            sourceY,
+            sourcePosition: Position.Right,
+            targetX,
+            targetY,
+            targetPosition: Position.Left,
+            borderRadius: 5
+          });
+
+          const newMidX = labelX;
+          const newMidY = labelY;
+
+          // Verificar si la posición ha cambiado significativamente (más de 1 píxel)
+          const currentX = connectionPoint.position.x + 5; // +5 porque restamos 5 al crear
+          const currentY = connectionPoint.position.y + 5; // +5 porque restamos 5 al crear
+
+          if (Math.abs(currentX - newMidX) > 1 || Math.abs(currentY - newMidY) > 1) {
+            // Actualizar posición del punto de conexión
+            const nodeIndex = updatedNodes.findIndex(n => n.id === connectionPoint.id);
+            if (nodeIndex !== -1) {
+              updatedNodes[nodeIndex] = {
+                ...connectionPoint,
+                position: { x: newMidX - 5, y: newMidY - 5 }
+              };
+              hasUpdates = true;
+            }
+          }
+        }
+      }
+
+      // Aplicar actualizaciones si hay cambios
+      if (hasUpdates) {
+        setNodes(updatedNodes);
+        await updateBoardData(updatedNodes, edges);
+      }
+    };
+
+    // Ejecutar actualización con un pequeño delay para evitar demasiadas actualizaciones
+    const timeoutId = setTimeout(updateConnectionPoints, 100);
+    return () => clearTimeout(timeoutId);
+  }, [nodes, edges, setNodes, updateBoardData]);
+
+  // Función para crear clase de asociación
+  const handleCreateAssociationClass = useCallback(async () => {
+    if (!selectedEdge) return;
+
+    // Encontrar los nodos source y target
+    const sourceNode = nodes.find(node => node.id === selectedEdge.source);
+    const targetNode = nodes.find(node => node.id === selectedEdge.target);
+
+    if (!sourceNode || !targetNode) {
+      console.error('No se encontraron los nodos de la relación');
+      return;
+    }
+
+    // Calcular dimensiones basadas en CSS real de ClassNode
+    const calculateRealNodeDimensions = (node) => {
+      // Basado en el CSS actual: width: 340px, padding: 20px
+      const nodeWidth = 340;
+      const padding = 20;
+      const lineHeight = 22.4; // 1.4 * 16px (font-size: 1rem)
+      const titleHeight = 32; // font-size: 1.25rem + padding
+      const sectionTitleHeight = 18; // font-size: 1.125rem
+      const basePadding = 8;
+      
+      let totalHeight = padding * 2; // Top + bottom padding
+      totalHeight += titleHeight; // Title height
+      
+      const attributeCount = node.data?.attributes?.length || 0;
+      const methodCount = node.data?.methods?.length || 0;
+      
+      // Agregar altura de sección de atributos
+      if (attributeCount > 0) {
+        totalHeight += sectionTitleHeight + basePadding; // Section title
+        totalHeight += attributeCount * lineHeight; // Lines
+        totalHeight += basePadding; // Bottom spacing
+      }
+      
+      // Agregar altura de sección de métodos
+      if (methodCount > 0) {
+        totalHeight += sectionTitleHeight + basePadding; // Section title
+        totalHeight += methodCount * lineHeight; // Lines
+        totalHeight += basePadding; // Bottom spacing
+      }
+      
+      // Altura mínima
+      totalHeight = Math.max(totalHeight, 100);
+      
+      return { width: nodeWidth, height: totalHeight };
+    };
+    
+    const sourceDimensions = calculateRealNodeDimensions(sourceNode);
+    const targetDimensions = calculateRealNodeDimensions(targetNode);
+    
+    // Usar las dimensiones reales para calcular las posiciones de los handles
+    const sourceX = sourceNode.position.x + sourceDimensions.width;
+    const sourceY = sourceNode.position.y + (sourceDimensions.height / 2);
+    const targetX = targetNode.position.x;
+    const targetY = targetNode.position.y + (targetDimensions.height / 2);
+    
+    // Usar getSmoothStepPath para obtener labelX y labelY exactos
+    const [, labelX, labelY] = getSmoothStepPath({
+      sourceX,
+      sourceY,
+      sourcePosition: Position.Right,
+      targetX,
+      targetY,
+      targetPosition: Position.Left,
+      borderRadius: 5
+    });
+    
+    // Usar las coordenadas exactas del label (donde aparece "AC")
+    const midX = labelX;
+    const midY = labelY;
+    
+    // Posición de la clase de asociación (arriba del punto medio)
+    const classY = midY - 120;
+
+    // Generar nombre único para la clase de asociación
+    const existingAssocClasses = nodes.filter(node => 
+      node.data?.className?.startsWith('ClaseAsociacion')
+    );
+    const newClassName = `ClaseAsociacion${existingAssocClasses.length + 1}`;
+
+    // Crear la nueva clase de asociación
+    const newAssociationNode = {
+      id: `assoc-node-${Date.now()}`,
+      position: { x: midX - 85, y: classY }, // Centrar la clase (ancho ~170px)
+      type: "classNode",
+      data: {
+        className: newClassName,
+        attributes: ["atributoAsociacion: string"],
+        methods: ["operacionAsociacion(): void"],
+        isAssociationClass: true,
+        associatedEdgeId: selectedEdge.id
+      },
+    };
+
+    // Crear un nodo punto visible en el centro de la relación
+    const relationCenterNode = {
+      id: `relation-center-${Date.now()}`,
+      position: { x: midX - 5, y: midY - 5 },
+      type: "classNode",
+      data: {
+        className: '',
+        attributes: [],
+        methods: [],
+        isConnectionPoint: true
+      },
+    };
+
+    console.log('🎯 Creando nodo punto en:', { 
+      x: midX - 5, 
+      y: midY - 5,
+      sourceConnection: { x: sourceX, y: sourceY },
+      targetConnection: { x: targetX, y: targetY },
+      midPoint: { x: midX, y: midY }
+    });
+
+    // Crear edge punteado de asociación
+    const associationEdge = {
+      id: `assoc-edge-${Date.now()}`,
+      source: newAssociationNode.id,
+      sourceHandle: 'bottom',
+      target: relationCenterNode.id,
+      targetHandle: 'connection-point',
+      type: 'umlEdge',
+      style: {
+        strokeDasharray: '5,5',
+        stroke: '#ff0000', // Rojo para debugging
+        strokeWidth: 3,    // Más grueso para debugging
+        pointerEvents: 'none'
+      },
+      data: {
+        type: 'AssociationClassConnection',
+        isAssociationConnection: true,
+        parentRelationId: selectedEdge.id,
+        label: ''
+      }
+    };
+
+    console.log('🔗 Creando edge de asociación:', associationEdge);
+
+    // Actualizar el edge original para marcar que tiene clase de asociación
+    const updatedSelectedEdge = {
+      ...selectedEdge,
+      data: {
+        ...selectedEdge.data,
+        associationClassId: newAssociationNode.id,
+        hasAssociationClass: true,
+        associationClassNodeId: newAssociationNode.id
+      }
+    };
+
+    // Actualizar arrays
+    const updatedNodes = [...nodes, newAssociationNode, relationCenterNode];
+    const updatedEdges = [
+      ...edges.map(edge => edge.id === selectedEdge.id ? updatedSelectedEdge : edge),
+      associationEdge
+    ];
+
+    // Aplicar cambios
+    setNodes(updatedNodes);
+    setEdges(updatedEdges);
+    await updateBoardData(updatedNodes, updatedEdges);
+
+    // Log para debugging
+    console.log('✅ Clase de asociación creada:', {
+      associationNode: newAssociationNode,
+      relationCenterNode: relationCenterNode,
+      associationEdge: associationEdge,
+      updatedNodes: updatedNodes.length,
+      updatedEdges: updatedEdges.length
+    });
+
+  }, [selectedEdge, nodes, edges, setNodes, setEdges, updateBoardData]);
 
   return (
   <div className="flex h-[calc(100vh-4rem)]">
@@ -549,6 +824,9 @@ const BoardPage = () => {
       handleInputChangeEdge={handleInputChangeEdge}
       updateNodeData={updateNodeData}
       updateEdgeData={updateEdgeData}
+      handleCreateAssociationClass={handleCreateAssociationClass}
+      setSelectedEdge={setSelectedEdge}
+      setEditingEdge={setEditingEdge}
     />
 
     {/* Contenido principal a la derecha */}
@@ -641,6 +919,7 @@ const BoardPage = () => {
         >
           <Background color="#e0e7ff" gap={20} />
           <Controls className="bg-white shadow-md" />
+
         </ReactFlow>
       </div>
       
