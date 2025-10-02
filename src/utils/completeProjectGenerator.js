@@ -3,14 +3,25 @@ import { generateCode } from './codeGenerator.js';
 
 export const generateCompleteProject = async (nodes, edges, projectName = 'UMLGeneratedProject') => {
   try {
-    // Validar nodos
-    const invalidNodes = nodes.filter(node => !node.data?.className);
-    if (invalidNodes.length > 0) {
-      throw new Error(`Nodos sin className: ${invalidNodes.map(n => n.id).join(', ')}`);
+    // Filtrar nodos válidos para generación de código (excluir nodos de sistema)
+    const validNodes = nodes.filter(node => {
+      // Excluir puntos de conexión de clases de asociación
+      if (node.data?.isConnectionPoint) return false;
+      
+      // Excluir notas (comentarios)
+      if (node.data?.isNote) return false;
+      
+      // Incluir solo nodos con className válido
+      return node.data?.className && node.data.className.trim() !== '';
+    });
+    
+    // Validar que tengamos nodos válidos para generar código
+    if (validNodes.length === 0) {
+      throw new Error('No hay clases válidas para generar código. Asegúrate de que tus clases tengan nombres válidos.');
     }
 
-    // Generar código base con validaciones ya incluidas
-    const baseResult = generateCode(nodes, edges, true);
+    // Generar código base con nodos filtrados y validaciones ya incluidas
+    const baseResult = generateCode(validNodes, edges, true);
     
     // Debug: Verificar que tenemos todas las capas
     console.log('🔍 GenerateCompleteProject - baseResult:', {

@@ -3,15 +3,26 @@
 
   export const generateCode = (nodes, edges, generateFullStack = false) => {
     try {
-      // Validar que todos los nodos tienen className
-      const invalidNodes = nodes.filter(node => !node.data?.className);
-      if (invalidNodes.length > 0) {
-        throw new Error(`Los siguientes nodos no tienen nombre de clase definido: ${invalidNodes.map(n => n.id).join(', ')}`);
+      // Filtrar nodos válidos para generación de código (excluir nodos de sistema)
+      const validNodes = nodes.filter(node => {
+        // Excluir puntos de conexión de clases de asociación
+        if (node.data?.isConnectionPoint) return false;
+        
+        // Excluir notas (comentarios)
+        if (node.data?.isNote) return false;
+        
+        // Incluir solo nodos con className válido
+        return node.data?.className && node.data.className.trim() !== '';
+      });
+      
+      // Validar que tengamos nodos válidos
+      if (validNodes.length === 0) {
+        throw new Error('No hay clases válidas para generar código. Asegúrate de que tus clases tengan nombres válidos.');
       }
 
       // 1) Generamos los modelos y guardamos { className, code }
-      const models = nodes.map((node) => {
-        const code = generateEntityClass(node, edges);
+      const models = validNodes.map((node) => {
+        const code = generateEntityClass(node, edges, validNodes);
         return { className: node.data.className, code };
       });
 
@@ -24,17 +35,17 @@
       }
 
       // 2) Generamos Repos, Services y Controllers
-      const repositories = nodes.map((node) => {
+      const repositories = validNodes.map((node) => {
         const code = generateRepository(node);
         return { className: node.data.className, code };
       });
 
-      const services = nodes.map((node) => {
+      const services = validNodes.map((node) => {
         const code = generateService(node);
         return { className: node.data.className, code };
       });
 
-      const controllers = nodes.map((node) => {
+      const controllers = validNodes.map((node) => {
         const code = generateController(node);
         return { className: node.data.className, code };
       });

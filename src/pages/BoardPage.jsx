@@ -876,9 +876,9 @@ const BoardPage = () => {
           defaultEdgeOptions={defaultEdgeOptions}
           connectionMode="loose"
           isValidConnection={(connection) => {
-            // Permitir todas las conexiones excepto self-connections (mismo nodo)
-            // Esto permite que cualquier handler se conecte con cualquier otro handler
-            return connection.source !== connection.target;
+            // Permitir TODAS las conexiones, incluyendo conexiones recursivas (mismo nodo)
+            // Solo validar que no sea una conexión inválida (sin source o target)
+            return connection.source && connection.target;
           }}
           fitView
           className="bg-gray-50"
