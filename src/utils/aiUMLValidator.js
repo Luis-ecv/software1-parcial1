@@ -10,22 +10,70 @@ export { validateAICredentials };
 
 /**
  * Extrae el resumen del diagrama desde los nodos y edges de ReactFlow
+ * Filtra nodos y edges de sistema para mostrar solo el diagrama UML real
  */
 export const extractDiagramSummary = (nodes, edges) => {
-  const nodos = nodes.map(node => ({
+  // Filtrar solo nodos UML reales (excluir nodos de sistema)
+  const nodosUML = nodes.filter(node => {
+    // Excluir nodos de sistema invisibles
+    if (node.data?.isConnectionPoint) return false;
+    
+    // Excluir notas (son comentarios, no clases UML)
+    if (node.data?.isNote) return false;
+    
+    // Incluir solo clases reales y clases de asociación
+    return node.type === 'classNode' && node.data?.className;
+  });
+
+  const nodos = nodosUML.map(node => ({
     id: node.id,
     nombre: node.data?.className || node.id,
-    estereotipo: node.data?.stereotype || null,
+    estereotipo: node.data?.isAssociationClass ? 'association-class' : 
+                (node.data?.stereotype || null),
     atributos: node.data?.attributes || [],
-    metodos: node.data?.methods || []
+    metodos: node.data?.methods || [],
+    esClaseAsociacion: node.data?.isAssociationClass || false,
+    relacionAsociada: node.data?.associatedEdgeId || null
   }));
 
-  const aristas = edges.map(edge => ({
-    tipo: (edge.data?.relationshipType || 'asociacion').toLowerCase(),
+  // Filtrar solo edges UML reales (excluir conexiones de sistema)
+  const edgesUML = edges.filter(edge => {
+    // Excluir conexiones internas de clases de asociación
+    if (edge.data?.isAssociationConnection) return false;
+    
+    // Excluir conexiones de notas
+    if (edge.data?.isNoteConnection) return false;
+    
+    // Verificar que source y target sean nodos UML válidos
+    const sourceExists = nodosUML.some(n => n.id === edge.source);
+    const targetExists = nodosUML.some(n => n.id === edge.target);
+    
+    return sourceExists && targetExists;
+  });
+
+  const aristas = edgesUML.map(edge => ({
+    id: edge.id,
+    tipo: (edge.data?.type || 'Association').toLowerCase(),
     source: edge.source,
     target: edge.target,
-    multiplicidad: edge.data?.multiplicity || null
+    multiplicidadInicio: edge.data?.startLabel || null,
+    multiplicidadFin: edge.data?.endLabel || null,
+    rolInicio: edge.data?.sourceRole || null,
+    rolFin: edge.data?.targetRole || null,
+    etiqueta: edge.data?.label || null,
+    tieneClaseAsociacion: edge.data?.hasAssociationClass || false,
+    claseAsociacionId: edge.data?.associationClassId || null
   }));
+
+  // Log para debugging
+  console.log('📊 Extracción UML:', {
+    nodosOriginales: nodes.length,
+    nodosUML: nodos.length,
+    edgesOriginales: edges.length,
+    edgesUML: aristas.length,
+    nodosExcluidos: nodes.length - nodos.length,
+    edgesExcluidos: edges.length - aristas.length
+  });
 
   return { nodos, aristas };
 };
@@ -36,7 +84,7 @@ export const extractDiagramSummary = (nodes, edges) => {
 export const performLocalChecks = (resumenJson) => {
   const { nodos, aristas } = resumenJson;
   
-  // Detectar nodos aislados
+  // Detectar nodos aislados (excluyendo clases de asociación válidas)
   const nodosConectados = new Set();
   aristas.forEach(arista => {
     nodosConectados.add(arista.source);
@@ -44,16 +92,23 @@ export const performLocalChecks = (resumenJson) => {
   });
   
   const islas = nodos
-    .filter(nodo => !nodosConectados.has(nodo.id))
+    .filter(nodo => {
+      // Las clases de asociación conectadas a una relación no son islas
+      if (nodo.esClaseAsociacion && nodo.relacionAsociada) {
+        return false;
+      }
+      return !nodosConectados.has(nodo.id);
+    })
     .map(nodo => nodo.id);
 
-  // Detectar referencias rotas
+  // Detectar referencias rotas con mejor contexto
   const idsNodos = new Set(nodos.map(n => n.id));
   const referenciasRotas = aristas
     .filter(arista => !idsNodos.has(arista.source) || !idsNodos.has(arista.target))
     .map(arista => ({
       source: arista.source,
-      target: arista.target
+      target: arista.target,
+      motivo: `Nodo ${!idsNodos.has(arista.source) ? arista.source : arista.target} no existe en el diagrama`
     }));
 
   // Detectar duplicados básicos

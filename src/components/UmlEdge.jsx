@@ -1,5 +1,34 @@
 import React, { memo, useState } from 'react';
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, getBezierPath } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, getBezierPath, Position } from '@xyflow/react';
+
+// Función para calcular la posición de las etiquetas de cardinalidad según el handle
+const getCardinalityPosition = (x, y, position, type) => {
+  const offset = 30; // Distancia de separación de la etiqueta
+  
+  switch (position) {
+    case Position.Top:
+      return {
+        x: x + (type === 'start' ? -15 : 15), // Offset horizontal para evitar superposición
+        y: y - offset
+      };
+    case Position.Bottom:
+      return {
+        x: x + (type === 'start' ? -15 : 15), // Offset horizontal para evitar superposición
+        y: y + offset
+      };
+    case Position.Left:
+      return {
+        x: x - offset,
+        y: y + (type === 'start' ? -10 : 10) // Offset vertical para evitar superposición
+      };
+    case Position.Right:
+    default:
+      return {
+        x: x + offset,
+        y: y + (type === 'start' ? -10 : 10) // Offset vertical para evitar superposición
+      };
+  }
+};
 
 const UML_RELATIONSHIP_TYPES = {
   Association: {
@@ -332,15 +361,20 @@ const UmlEdge = ({
           <div
             style={{
               position: 'absolute',
-              background: 'white',
-              padding: '2px 4px',
-              borderRadius: '4px',
-              fontSize: '12px',
+              background: 'rgba(255, 255, 255, 0.95)',
+              padding: '3px 6px',
+              borderRadius: '6px',
+              fontSize: '11px',
               fontFamily: 'monospace',
-              border: '1px solid #e2e8f0',
-              transform: `translate(-50%, -50%) translate(${sourceX + 20}px,${sourceY - 20}px)`
+              fontWeight: 'bold',
+              border: '2px solid #3b82f6',
+              color: '#1e40af',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              transform: `translate(-50%, -50%) translate(${getCardinalityPosition(sourceX, sourceY, sourcePosition, 'start').x}px,${getCardinalityPosition(sourceX, sourceY, sourcePosition, 'start').y}px)`,
+              zIndex: 1000
             }}
             className="nodrag nopan"
+            title={`Cardinalidad inicio: ${data.startLabel}`}
           >
             {data.startLabel}
           </div>
@@ -351,15 +385,20 @@ const UmlEdge = ({
           <div
             style={{
               position: 'absolute',
-              background: 'white',
-              padding: '2px 4px',
-              borderRadius: '4px',
-              fontSize: '12px',
+              background: 'rgba(255, 255, 255, 0.95)',
+              padding: '3px 6px',
+              borderRadius: '6px',
+              fontSize: '11px',
               fontFamily: 'monospace',
-              border: '1px solid #e2e8f0',
-              transform: `translate(-50%, -50%) translate(${targetX - 20}px,${targetY - 20}px)`
+              fontWeight: 'bold',
+              border: '2px solid #10b981',
+              color: '#059669',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              transform: `translate(-50%, -50%) translate(${getCardinalityPosition(targetX, targetY, targetPosition, 'end').x}px,${getCardinalityPosition(targetX, targetY, targetPosition, 'end').y}px)`,
+              zIndex: 1000
             }}
             className="nodrag nopan"
+            title={`Cardinalidad final: ${data.endLabel}`}
           >
             {data.endLabel}
           </div>
