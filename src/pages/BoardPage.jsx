@@ -446,7 +446,7 @@ const BoardPage = () => {
   // onConnect para crear aristas por defecto - Versión mejorada
   const onConnect = useCallback(
     (params) => {
-      console.log('🔗 Creando nueva relación:', params);
+
       
       if (!params.source || !params.target) {
         console.warn('⚠️ Error: source o target faltante', params);
@@ -458,16 +458,7 @@ const BoardPage = () => {
       const targetNode = nodes.find(n => n.id === params.target);
       const isNoteConnection = sourceNode?.data?.isNote || targetNode?.data?.isNote;
 
-      console.log('✅ Permitiendo conexión múltiple/recursiva entre nodos:', {
-        source: params.source,
-        target: params.target,
-        isRecursive: params.source === params.target,
-        isNoteConnection,
-        existingConnections: edges.filter(e => 
-          (e.source === params.source && e.target === params.target) ||
-          (e.source === params.target && e.target === params.source)
-        ).length
-      });
+
 
       // Crear edge con datos específicos según si es una nota o relación normal
       const newEdge = {
@@ -492,8 +483,6 @@ const BoardPage = () => {
           selected: false
         }
       };
-
-      console.log('✅ Edge creado exitosamente:', newEdge);
 
       const updatedEdges = addEdge(newEdge, edges);
       setEdges(updatedEdges);
@@ -687,40 +676,30 @@ const BoardPage = () => {
     const sourceDimensions = calculateRealNodeDimensions(sourceNode);
     const targetDimensions = calculateRealNodeDimensions(targetNode);
     
-    // Usar las dimensiones reales para calcular las posiciones de los handles
-    const sourceX = sourceNode.position.x + sourceDimensions.width;
-    const sourceY = sourceNode.position.y + (sourceDimensions.height / 2);
-    const targetX = targetNode.position.x;
-    const targetY = targetNode.position.y + (targetDimensions.height / 2);
+    // SIMPLE: Calcular punto medio real entre los centros de los nodos conectados
+    const sourceCenterX = sourceNode.position.x + sourceDimensions.width / 2;
+    const sourceCenterY = sourceNode.position.y + sourceDimensions.height / 2;
+    const targetCenterX = targetNode.position.x + targetDimensions.width / 2;
+    const targetCenterY = targetNode.position.y + targetDimensions.height / 2;
     
-    // Usar getSmoothStepPath para obtener labelX y labelY exactos
-    const [, labelX, labelY] = getSmoothStepPath({
-      sourceX,
-      sourceY,
-      sourcePosition: Position.Right,
-      targetX,
-      targetY,
-      targetPosition: Position.Left,
-      borderRadius: 5
-    });
+    // Punto medio exacto donde debe aparecer la clase de asociación
+    const labelX = (sourceCenterX + targetCenterX) / 2;
+    const labelY = (sourceCenterY + targetCenterY) / 2;
     
     // Usar las coordenadas exactas del label (donde aparece "AC")
     const midX = labelX;
     const midY = labelY;
     
-    // Posición de la clase de asociación (arriba del punto medio)
-    const classY = midY - 120;
-
     // Generar nombre único para la clase de asociación
     const existingAssocClasses = nodes.filter(node => 
       node.data?.className?.startsWith('ClaseAsociacion')
     );
     const newClassName = `ClaseAsociacion${existingAssocClasses.length + 1}`;
 
-    // Crear la nueva clase de asociación
+    // Crear la nueva clase de asociación CENTRADA sobre el punto medio
     const newAssociationNode = {
       id: `assoc-node-${Date.now()}`,
-      position: { x: midX - 85, y: classY }, // Centrar la clase (ancho ~170px)
+      position: { x: midX - 170, y: midY - 90 }, // Centrada sobre el punto medio
       type: "classNode",
       data: {
         className: newClassName,
@@ -744,14 +723,6 @@ const BoardPage = () => {
       },
     };
 
-    console.log('🎯 Creando nodo punto en:', { 
-      x: midX - 5, 
-      y: midY - 5,
-      sourceConnection: { x: sourceX, y: sourceY },
-      targetConnection: { x: targetX, y: targetY },
-      midPoint: { x: midX, y: midY }
-    });
-
     // Crear edge punteado de asociación
     const associationEdge = {
       id: `assoc-edge-${Date.now()}`,
@@ -773,8 +744,6 @@ const BoardPage = () => {
         label: ''
       }
     };
-
-    console.log('🔗 Creando edge de asociación:', associationEdge);
 
     // Actualizar el edge original para marcar que tiene clase de asociación
     const updatedSelectedEdge = {
@@ -798,15 +767,6 @@ const BoardPage = () => {
     setNodes(updatedNodes);
     setEdges(updatedEdges);
     await updateBoardData(updatedNodes, updatedEdges);
-
-    // Log para debugging
-    console.log('✅ Clase de asociación creada:', {
-      associationNode: newAssociationNode,
-      relationCenterNode: relationCenterNode,
-      associationEdge: associationEdge,
-      updatedNodes: updatedNodes.length,
-      updatedEdges: updatedEdges.length
-    });
 
   }, [selectedEdge, nodes, edges, setNodes, setEdges, updateBoardData]);
 
@@ -914,6 +874,12 @@ const BoardPage = () => {
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
+          connectionMode="loose"
+          isValidConnection={(connection) => {
+            // Permitir todas las conexiones excepto self-connections (mismo nodo)
+            // Esto permite que cualquier handler se conecte con cualquier otro handler
+            return connection.source !== connection.target;
+          }}
           fitView
           className="bg-gray-50"
         >

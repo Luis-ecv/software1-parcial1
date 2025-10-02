@@ -46,7 +46,7 @@ function ClassNode({ data, isConnectable }) {
       {/* Handles para clases normales - Múltiples puntos de conexión */}
       {!data?.isAssociationClass && (
         <>
-          {/* HANDLES FUENTE (para iniciar conexiones) */}
+          {/* HANDLES BIDIRECCIONALES - Lado Derecho (VERDE) */}
           <Handle
             type="source"
             position={Position.Right}
@@ -96,9 +96,9 @@ function ClassNode({ data, isConnectable }) {
             }}
           />
           
-          {/* HANDLES DESTINO (para recibir conexiones) */}
+          {/* HANDLES BIDIRECCIONALES - Lado Izquierdo (AZUL) */}
           <Handle
-            type="target"
+            type="source"
             position={Position.Left}
             id="left-top"
             isConnectable={isConnectable}
@@ -114,7 +114,7 @@ function ClassNode({ data, isConnectable }) {
             }}
           />
           <Handle
-            type="target"
+            type="source"
             position={Position.Left}
             id="left-center"
             isConnectable={isConnectable}
@@ -130,7 +130,7 @@ function ClassNode({ data, isConnectable }) {
             }}
           />
           <Handle
-            type="target"
+            type="source"
             position={Position.Left}
             id="left-bottom"
             isConnectable={isConnectable}
@@ -146,7 +146,7 @@ function ClassNode({ data, isConnectable }) {
             }}
           />
 
-          {/* HANDLES SUPERIOR E INFERIOR */}
+          {/* HANDLES BIDIRECCIONALES - Superior e Inferior */}
           <Handle
             type="source"
             position={Position.Top}
@@ -164,7 +164,7 @@ function ClassNode({ data, isConnectable }) {
             }}
           />
           <Handle
-            type="target"
+            type="source"
             position={Position.Bottom}
             id="bottom-center"
             isConnectable={isConnectable}
