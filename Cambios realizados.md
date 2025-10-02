@@ -341,6 +341,129 @@ type BurbujaHerramientasDiagramaProps = {
 
 ---
 
+### **Cambio #10: Correcciones Críticas en Verificación de IA**
+**Fecha:** 2 de Octubre, 2025  
+**Tipo:** Corrección de bugs críticos en el sistema de validación
+
+#### 🐛 Problemas Identificados
+1. **Mapeo incorrecto de datos:** La función `extractDiagramSummary` usaba campos incorrectos
+2. **Inclusión de elementos del sistema:** Nodos invisibles confundían la IA
+3. **Referencias rotas falsas:** La IA detectaba conexiones internas como errores
+4. **Evaluación inexacta:** Diagramas válidos recibían puntuaciones bajas (2/100)
+
+#### ✅ Soluciones Implementadas
+
+**1. Corrección del mapeo de datos en `aiUMLValidator.js`:**
+```javascript
+// ANTES (❌ INCORRECTO)
+relationships: edges.map(edge => ({
+  type: edge.relationshipType || edge.type, // Campo inexistente
+  multiplicity: edge.multiplicity // Campo inexistente
+}))
+
+// DESPUÉS (✅ CORRECTO) 
+relationships: edges
+  .filter(edge => 
+    !edge.isAssociationConnection && // Excluir conexiones internas
+    !isNoteConnection(edge) // Excluir conexiones de notas
+  )
+  .map(edge => ({
+    type: edge.type || 'association', // Campo correcto
+    startCardinality: edge.data?.startLabel || '',
+    endCardinality: edge.data?.endLabel || '',
+    sourceClass: edge.source,
+    targetClass: edge.target
+  }))
+```
+
+**2. Filtrado correcto de elementos del sistema:**
+```javascript
+// Filtrar nodos del sistema que confundían la IA
+const validNodes = nodes.filter(node => 
+  !node.isConnectionPoint && // Excluir puntos de conexión invisibles
+  !node.isNote // Las notas se procesan por separado
+);
+
+// Procesar notas/anotaciones por separado
+const notes = nodes
+  .filter(node => node.isNote)
+  .map(note => ({
+    id: note.id,
+    content: note.data?.text || 'Nota sin contenido',
+    position: note.position
+  }));
+```
+
+**3. Mejora del prompt de la IA:**
+```javascript
+const prompt = `Analiza este diagrama UML y proporciona una evaluación detallada...
+
+DATOS DEL DIAGRAMA:
+- Clases: ${summary.classes.length} clases definidas
+- Relaciones: ${summary.relationships.length} relaciones UML
+- Anotaciones: ${summary.notes.length} notas/comentarios
+- Clases de Asociación: ${summary.associationClasses.length} clases de asociación
+
+CRITERIOS DE EVALUACIÓN:
+1. Estructura UML válida (30%)
+2. Relaciones correctas (25%) 
+3. Cardinalidades apropiadas (20%)
+4. Nomenclatura consistente (15%)
+5. Anotaciones útiles (10%)
+
+NO PENALIZAR por:
+- Elementos internos del sistema
+- Conexiones de implementación técnica
+- Nodos de posicionamiento automático`;
+```
+
+**4. Validación local mejorada:**
+```javascript
+function validateDiagramLocally(nodes, edges) {
+  const issues = [];
+  
+  // Validar solo elementos UML reales
+  const umlNodes = nodes.filter(n => !n.isConnectionPoint && !n.isNote);
+  const umlEdges = edges.filter(e => !e.isAssociationConnection);
+  
+  // Validaciones específicas
+  if (umlNodes.length === 0) {
+    issues.push("Diagrama vacío - agregue al menos una clase");
+  }
+  
+  // Verificar cardinalidades faltantes
+  const edgesWithoutCardinality = umlEdges.filter(e => 
+    !e.data?.startLabel && !e.data?.endLabel
+  );
+  
+  if (edgesWithoutCardinality.length > 0) {
+    issues.push(`${edgesWithoutCardinality.length} relaciones sin cardinalidad`);
+  }
+  
+  return issues;
+}
+```
+
+#### ✅ Resultados Esperados
+- **Puntuaciones más altas:** Diagramas válidos deberían obtener 80-95/100
+- **Detección precisa:** Solo errores reales UML serán reportados
+- **Referencias correctas:** No más "conexiones invisibles" falsas
+- **Evaluación justa:** La IA considerará elementos UML reales únicamente
+
+#### 📁 Archivos Modificados
+- `src/utils/aiUMLValidator.js` - Corrección completa del sistema de validación
+- Función `extractDiagramSummary` - Mapeo correcto de datos
+- Función `validateUMLDiagramWithAI` - Prompt mejorado y filtrado de datos
+- Función `validateDiagramLocally` - Validación local más precisa
+
+#### 🔧 Detalles Técnicos
+- **Problema principal:** La función `extractDiagramSummary` incluía elementos internos del sistema (nodos con `isConnectionPoint: true`, edges con `isAssociationConnection: true`) que confundían la IA
+- **Solución:** Filtrado riguroso de elementos antes de enviar a la IA
+- **Mapeo corregido:** Uso de campos correctos (`type` en lugar de `relationshipType`, `startLabel/endLabel` en lugar de `multiplicity`)
+- **Validación mejorada:** Separación clara entre elementos UML visibles y elementos técnicos internos
+
+---
+
 ## 📝 Notas para Futuros Cambios
 
 - Todos los cambios futuros se documentarán en este mismo archivo
